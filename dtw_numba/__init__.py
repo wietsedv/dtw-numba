@@ -6,11 +6,9 @@ import numpy as np
 
 
 class StepPattern(IntEnum):
-    # https://cran.r-project.org/web/packages/dtw/vignettes/dtw.pdf p8
     symmetric1 = 1
     symmetric2 = 2
-    # asymmetric = 3
-    # rabinerJuang = 4
+    asymmetric = 3
 
 
 @nb.njit(parallel=True, fastmath=True)
@@ -41,6 +39,30 @@ def _euclidean_f64(x: np.ndarray, y: np.ndarray, w: int):
 
 
 @nb.njit(fastmath=True)
+def _symmetric1(matrix: np.ndarray, i: int, j: int, w: int):
+    matrix[i, j] += min(
+        matrix[i, j - 1] if w == 0 or (i - j) < w else np.inf,
+        matrix[i - 1, j - 1],
+        matrix[i - 1, j] if w == 0 or (i - j) > -w else np.inf,
+    )
+
+@nb.njit(fastmath=True)
+def _symmetric2(matrix: np.ndarray, i: int, j: int, w: int):
+    matrix[i, j] += min(
+        matrix[i, j - 1] if w == 0 or (i - j) < w else np.inf,
+        matrix[i - 1, j - 1] + matrix[i, j],
+        matrix[i - 1, j] if w == 0 or (i - j) > -w else np.inf,
+    )
+
+@nb.njit(fastmath=True)
+def _asymmetric(matrix: np.ndarray, i: int, j: int, w: int):
+    matrix[i, j] += min(
+        matrix[i, j - 1] if w == 0 or (i - j) < w else np.inf,
+        matrix[i - 1, j - 1],
+        matrix[i - 2, j - 1] if i > 1 and (w == 0 or (i - j) > -w) else np.inf,
+    )
+
+@nb.njit(fastmath=True)
 def _dynamic_time_warping(matrix: np.ndarray, w: int, s: StepPattern):
     n, m = matrix.shape
 
@@ -57,11 +79,12 @@ def _dynamic_time_warping(matrix: np.ndarray, w: int, s: StepPattern):
         for j in range(1, m):
             if w > 0 and abs(i - j) > w:
                 continue
-            matrix[i, j] += min(
-                matrix[i - 1, j - 1] + (matrix[i, j] if s == StepPattern.symmetric2 else 0),
-                matrix[i, j - 1] if w == 0 or (i - j) != w else np.inf,
-                matrix[i - 1, j] if w == 0 or (i - j) != -w else np.inf,
-            )
+            if s == StepPattern.symmetric1:
+                _symmetric1(matrix, i, j, w)
+            elif s == StepPattern.symmetric2:
+                _symmetric2(matrix, i, j, w)
+            elif s == StepPattern.asymmetric:
+                _asymmetric(matrix, i, j, w)
 
     return matrix[-1, -1]
 
@@ -136,6 +159,6 @@ if __name__ == "__main__":
     y = y.astype(np.float32, copy=False)
     t0 = time.time()
     for _ in range(20):
-        d = dtw(x, y, window_size=500)
+        d = dtw(x, y, window_size=500, step_pattern=StepPattern.asymmetric)
     t1 = time.time()
     print(f"t={(t1 - t0) / 20 * 1000:.1f}ms ({d / (x.shape[0] + y.shape[0]):.3f})")
