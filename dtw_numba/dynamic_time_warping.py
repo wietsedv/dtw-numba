@@ -6,19 +6,10 @@ from step_patterns import StepPattern, symmetric1, symmetric2, asymmetric
 
 @njit(fastmath=True)
 def _dynamic_time_warping(matrix: np.ndarray, w: int, s: StepPattern):
-    n, m = matrix.shape
-
-    # first column
-    for i in range(1, n if w == 0 else min(n, w + 1)):
-        matrix[i, 0] += matrix[i - 1, 0]
-
-    # first row
-    for j in range(1, m if w == 0 else min(m, w + 1)):
-        matrix[0, j] += matrix[0, j - 1]
-
-    # rest of the matrix
-    for i in range(1, n):
-        for j in range(1, m):
+    for i in range(matrix.shape[0]):
+        for j in range(matrix.shape[1]):
+            if i == 0 and j == 0:
+                continue
             if w > 0 and abs(i - j) > w:
                 continue
             if s == StepPattern.symmetric1:
@@ -27,6 +18,8 @@ def _dynamic_time_warping(matrix: np.ndarray, w: int, s: StepPattern):
                 symmetric2(matrix, i, j, w)
             elif s == StepPattern.asymmetric:
                 asymmetric(matrix, i, j, w)
+            else:
+                raise ValueError("invalid step pattern")
 
     return matrix[-1, -1]
 

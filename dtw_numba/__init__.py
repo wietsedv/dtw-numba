@@ -2,7 +2,7 @@ import sys
 
 import numpy as np
 
-from distance_metrics import euclidean
+from distance_metrics import DistanceMetric, euclidean
 from dynamic_time_warping import dynamic_time_warping
 from step_patterns import StepPattern
 
@@ -39,14 +39,18 @@ def dtw(
     x: np.ndarray,
     y: np.ndarray,
     *,
-    # TODO distance_metric: str = "euclidean",
+    distance_metric: DistanceMetric = DistanceMetric.euclidean,
     # TODO window_type: str = "sakoechiba",
     window_size: int = 0,
     step_pattern: StepPattern = StepPattern.symmetric2,
 ):
     x, y, window_size = _sanitize_input(x, y, window_size)
 
-    matrix = euclidean(x, y, window_size)
+    if distance_metric == DistanceMetric.euclidean:
+        matrix = euclidean(x, y, window_size)
+    else:
+        raise ValueError("invalid distance metric")
+
     return dynamic_time_warping(matrix, window_size, step_pattern)
 
 

@@ -1,5 +1,11 @@
+from enum import IntEnum
+
 from numba import njit, prange
 import numpy as np
+
+
+class DistanceMetric(IntEnum):
+    euclidean = 1
 
 
 @njit(parallel=True, fastmath=True)
