@@ -1,13 +1,17 @@
-import sys
-
 import numpy as np
 
 from distance_metrics import DistanceMetric, euclidean
 from dynamic_time_warping import dynamic_time_warping
 from step_patterns import StepPattern
+from window_types import WindowType
 
 
-def _sanitize_input(x: np.ndarray, y: np.ndarray, window_size: int):
+def _sanitize_input(
+    x: np.ndarray,
+    y: np.ndarray,
+    window_type: WindowType,
+    window_size: int,
+):
     if len(x.shape) == 1:
         x = x.reshape(-1, 1)
     if len(y.shape) == 1:
@@ -23,13 +27,13 @@ def _sanitize_input(x: np.ndarray, y: np.ndarray, window_size: int):
     if x.dtype != np.float32 and x.dtype != np.float64:
         raise TypeError("the input arrays must have a float32 or float64 dtype")
 
-    # window_size
+    # window
     if window_size > 0:
-        min_window_size = abs(x.shape[0] - y.shape[0])
-        if window_size is not None and window_size < min_window_size:
-            print(
-                f"WARNING: window_size ({window_size}) is smaller than |x - y| ({min_window_size}). implicitly increased window size",
-                file=sys.stderr,
+        if window_type == WindowType.sakoechiba and window_size < abs(
+            x.shape[0] - y.shape[0]
+        ):
+            raise ValueError(
+                "window size cannot be smaller than |x - y| when using the sakoechiba window"
             )
 
     return x, y, window_size
@@ -40,11 +44,11 @@ def dtw(
     y: np.ndarray,
     *,
     distance_metric: DistanceMetric = DistanceMetric.euclidean,
-    # TODO window_type: str = "sakoechiba",
-    window_size: int = 0,
     step_pattern: StepPattern = StepPattern.symmetric2,
+    window_type: WindowType = WindowType.sakoechiba,
+    window_size: int = 0,
 ):
-    x, y, window_size = _sanitize_input(x, y, window_size)
+    x, y, window_size = _sanitize_input(x, y, window_type, window_size)
 
     if distance_metric == DistanceMetric.euclidean:
         matrix = euclidean(x, y, window_size)

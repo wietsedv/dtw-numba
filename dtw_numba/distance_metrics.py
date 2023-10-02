@@ -6,6 +6,8 @@ import numpy as np
 
 class DistanceMetric(IntEnum):
     euclidean = 1
+    # squared_euclidean = 2
+    # manhattan = 3
 
 
 @njit(parallel=True, fastmath=True)
@@ -40,4 +42,4 @@ def euclidean(x: np.ndarray, y: np.ndarray, w: int):
         return euclidean_f32(x, y, w)
     elif x.dtype == np.float64:
         return euclidean_f64(x, y, w)
-    raise TypeError("x must have a float32 or float64 dtype")
+    raise TypeError("inputs must have a float32 or float64 dtype")
