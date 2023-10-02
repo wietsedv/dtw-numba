@@ -5,58 +5,51 @@ import numpy as np
 
 
 @nb.njit(
-    "float32[:,::1](float32[:,::1],float32[:,::1],int64)", parallel=True, fastmath=True
+    "float32[:,::1](float32[:,::1],float32[:,::1],int64)",
+    parallel=True,
+    fastmath=True,
 )
 def _euclidean(x: np.ndarray, y: np.ndarray, w: int):
     n = x.shape[0]
     m = y.shape[0]
-    matrix = np.zeros((n, m), dtype=x.dtype)
+    matrix = np.empty((n, m), dtype=x.dtype)
 
     for i in nb.prange(n):
-        for j in nb.prange(0 if w == 0 else max(0, i - w), m if w == 0 else min(m, i + w + 1)):
+        for j in nb.prange(
+            0 if w == 0 else max(0, i - w), m if w == 0 else min(m, i + w + 1)
+        ):
+            matrix[i, j] = 0.
             for k in nb.prange(x.shape[1]):
                 matrix[i, j] += (x[i, k] - y[j, k]) ** 2
             matrix[i, j] = np.sqrt(matrix[i, j])
     return matrix
 
 
-@nb.njit("void(float32[:,::1],int64)", fastmath=True)
-def _dynamic_time_warping(matrix: np.ndarray, w: int | None):
+@nb.njit(
+    "void(float32[:,::1],int64)",
+    fastmath=True,
+)
+def _dynamic_time_warping(matrix: np.ndarray, w: int):
     n, m = matrix.shape
-    for i in range(1, n):
+
+    # first column
+    for i in range(1, n if w == 0 else min(n, w + 1)):
         matrix[i, 0] += matrix[i - 1, 0]
-    for j in range(1, m):
+
+    # first row
+    for j in range(1, m if w == 0 else min(m, w + 1)):
         matrix[0, j] += matrix[0, j - 1]
+
+    # rest of the matrix
     for i in range(1, n):
         for j in range(1, m):
-            if w == 0:
-                matrix[i, j] += min(
-                    matrix[i - 1, j - 1] + matrix[i, j],
-                    matrix[i, j - 1],
-                    matrix[i - 1, j],
-                )
+            if w > 0 and abs(i - j) > w:
                 continue
-
-            offset = i - j
-            if (offset < -w) or (offset > w):
-                continue
-
-            if offset == -w:
-                matrix[i, j] += min(
-                    matrix[i - 1, j - 1] + matrix[i, j],
-                    matrix[i, j - 1],
-                )
-            elif offset == w:
-                matrix[i, j] += min(
-                    matrix[i - 1, j - 1] + matrix[i, j],
-                    matrix[i - 1, j],
-                )
-            else:
-                matrix[i, j] += min(
-                    matrix[i - 1, j - 1] + matrix[i, j],
-                    matrix[i, j - 1],
-                    matrix[i - 1, j],
-                )
+            matrix[i, j] += min(
+                matrix[i - 1, j - 1] + matrix[i, j],
+                matrix[i, j - 1] if w == 0 or (i - j) != w else np.inf,
+                matrix[i - 1, j] if w == 0 or (i - j) != -w else np.inf,
+            )
 
 
 def dtw(
@@ -76,7 +69,10 @@ def dtw(
     if window_size > 0:
         min_window_size = abs(x.shape[0] - y.shape[0])
         if window_size is not None and window_size < min_window_size:
-            print(f"WARNING: window_size ({window_size}) is smaller than |x - y| ({min_window_size}). implicitly increased window size", file=sys.stderr)
+            print(
+                f"WARNING: window_size ({window_size}) is smaller than |x - y| ({min_window_size}). implicitly increased window size",
+                file=sys.stderr,
+            )
 
     matrix = _euclidean(x, y, window_size)
     _dynamic_time_warping(matrix, window_size)
