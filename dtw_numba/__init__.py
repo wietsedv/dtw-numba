@@ -1,7 +1,16 @@
+from enum import IntEnum
 import sys
 
 import numba as nb
 import numpy as np
+
+
+class StepPattern(IntEnum):
+    # https://cran.r-project.org/web/packages/dtw/vignettes/dtw.pdf p8
+    symmetric1 = 1
+    symmetric2 = 2
+    # asymmetric = 3
+    # rabinerJuang = 4
 
 
 @nb.njit(parallel=True, fastmath=True)
@@ -32,7 +41,7 @@ def _euclidean_f64(x: np.ndarray, y: np.ndarray, w: int):
 
 
 @nb.njit(fastmath=True)
-def _dynamic_time_warping(matrix: np.ndarray, w: int):
+def _dynamic_time_warping(matrix: np.ndarray, w: int, s: StepPattern):
     n, m = matrix.shape
 
     # first column
@@ -49,7 +58,7 @@ def _dynamic_time_warping(matrix: np.ndarray, w: int):
             if w > 0 and abs(i - j) > w:
                 continue
             matrix[i, j] += min(
-                matrix[i - 1, j - 1] + matrix[i, j],
+                matrix[i - 1, j - 1] + (matrix[i, j] if s == StepPattern.symmetric2 else 0),
                 matrix[i, j - 1] if w == 0 or (i - j) != w else np.inf,
                 matrix[i - 1, j] if w == 0 or (i - j) != -w else np.inf,
             )
@@ -57,14 +66,14 @@ def _dynamic_time_warping(matrix: np.ndarray, w: int):
     return matrix[-1, -1]
 
 
-@nb.njit("float32(float32[:,::1],int64)")
-def _dynamic_time_warping_f32(matrix: np.ndarray, w: int):
-    return _dynamic_time_warping(matrix, w)
+@nb.njit("float32(float32[:,::1],int64,int64)")
+def _dynamic_time_warping_f32(matrix: np.ndarray, w: int, s: StepPattern):
+    return _dynamic_time_warping(matrix, w, s)
 
 
-@nb.njit("float64(float64[:,::1],int64)")
-def _dynamic_time_warping_f64(matrix: np.ndarray, w: int):
-    return _dynamic_time_warping(matrix, w)
+@nb.njit("float64(float64[:,::1],int64,int64)")
+def _dynamic_time_warping_f64(matrix: np.ndarray, w: int, s: StepPattern):
+    return _dynamic_time_warping(matrix, w, s)
 
 
 def _sanitize_input(x: np.ndarray, y: np.ndarray, window_size: int):
@@ -91,7 +100,7 @@ def _sanitize_input(x: np.ndarray, y: np.ndarray, window_size: int):
                 f"WARNING: window_size ({window_size}) is smaller than |x - y| ({min_window_size}). implicitly increased window size",
                 file=sys.stderr,
             )
-    
+
     return x, y, window_size
 
 
@@ -102,7 +111,7 @@ def dtw(
     # TODO distance_metric: str = "euclidean",
     # TODO window_type: str = "sakoechiba",
     window_size: int = 0,
-    # TODO step_pattern="symmetric2",
+    step_pattern: StepPattern = StepPattern.symmetric2,
 ):
     x, y, window_size = _sanitize_input(x, y, window_size)
 
@@ -111,12 +120,15 @@ def dtw(
     metric_fn = _euclidean_f64 if double_precision else _euclidean_f32
     matrix = metric_fn(x, y, window_size)
 
-    dtw_fn = _dynamic_time_warping_f64 if double_precision else _dynamic_time_warping_f32
-    return dtw_fn(matrix, window_size)
+    dtw_fn = (
+        _dynamic_time_warping_f64 if double_precision else _dynamic_time_warping_f32
+    )
+    return dtw_fn(matrix, window_size, step_pattern)
 
 
 if __name__ == "__main__":
     import time
+
     np.random.seed(1)
     x = np.random.random((1500, 1024))
     y = np.random.random((2000, 1024))
