@@ -61,7 +61,7 @@ def dtw(
     windowing_function_, *windowing_args = (
         wf.no_window() if windowing_function is None else windowing_function
     )
-    windowing_args_ = tuple(windowing_args)
+    windowing_args_ = q.shape[0], r.shape[0], *windowing_args
 
     _validate_input(q, r, windowing_function_, windowing_args_)
 
@@ -84,12 +84,21 @@ def main():
     q = q.astype(np.float32, copy=False)
     r = r.astype(np.float32, copy=False)
     for _ in range(10):
-        d = dtw(q, r, windowing_function=wf.sakoe_chiba(500))
+        d = dtw(q, r, windowing_function=wf.slanted_band(100))
     t0 = time.time()
     for _ in range(20):
-        d = dtw(q, r, windowing_function=wf.sakoe_chiba(500))
+        d = dtw(q, r, windowing_function=wf.slanted_band(100))
     t1 = time.time()
     print(f"t={(t1 - t0) / 20 * 1000:.1f}ms ({d / (q.shape[0] + r.shape[0]):.3f})")
+
+    window_fn, *args = wf.slanted_band(4)
+    n, m = 24, 24
+    actual = np.empty((n, m), dtype=np.bool_)
+    for i in range(n):
+        for j in range(m):
+            actual[i, j] = window_fn(i, j, n, m, *args)
+    for row in actual:
+        print(" ".join(["x" if x else "." for x in row]), str(sum(row)).zfill(2))
 
 
 if __name__ == "__main__":
