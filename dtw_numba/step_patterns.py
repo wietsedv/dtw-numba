@@ -16,13 +16,10 @@ def symmetric1(
     windowing_function: wf.WindowingFunction,
     windowing_args: tuple = (),
 ):
-    matrix[i, j] += min(
-        matrix[i, j - 1] if windowing_function(i, j - 1, *windowing_args) else np.inf,
-        matrix[i - 1, j - 1]
-        if windowing_function(i - 1, j - 1, *windowing_args)
-        else np.inf,
-        matrix[i - 1, j] if windowing_function(i - 1, j, *windowing_args) else np.inf,
-    )
+    def cost(i_, j_):
+        return matrix[i_, j_] if windowing_function(i_, j_, *windowing_args) else np.inf
+
+    matrix[i, j] += min(cost(i, j - 1), cost(i - 1, j - 1), cost(i - 1, j))
 
 
 @nb.njit(fastmath=True)
@@ -33,13 +30,10 @@ def symmetric2(
     windowing_function: wf.WindowingFunction,
     windowing_args: tuple = (),
 ):
-    matrix[i, j] += min(
-        matrix[i, j - 1] if windowing_function(i, j - 1, *windowing_args) else np.inf,
-        (matrix[i - 1, j - 1] + matrix[i - 1, j - 1])
-        if windowing_function(i - 1, j - 1, *windowing_args)
-        else np.inf,
-        matrix[i - 1, j] if windowing_function(i - 1, j, *windowing_args) else np.inf,
-    )
+    def cost(i_, j_):
+        return matrix[i_, j_] if windowing_function(i_, j_, *windowing_args) else np.inf
+
+    matrix[i, j] += min(cost(i, j - 1), 2 * cost(i - 1, j - 1), cost(i - 1, j))
 
 
 @nb.njit(fastmath=True)
@@ -50,12 +44,7 @@ def asymmetric(
     windowing_function: wf.WindowingFunction,
     windowing_args: tuple = (),
 ):
-    matrix[i, j] += min(
-        matrix[i, j - 1] if windowing_function(i, j - 1, *windowing_args) else np.inf,
-        matrix[i - 1, j - 1]
-        if windowing_function(i - 1, j - 1, *windowing_args)
-        else np.inf,
-        matrix[i - 2, j - 1]
-        if windowing_function(i - 2, j - 1, *windowing_args)
-        else np.inf,
-    )
+    def cost(i_, j_):
+        return matrix[i_, j_] if windowing_function(i_, j_, *windowing_args) else np.inf
+
+    matrix[i, j] += min(cost(i, j - 1), cost(i - 1, j - 1), cost(i - 2, j - 1))
