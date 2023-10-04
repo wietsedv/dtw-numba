@@ -34,12 +34,12 @@ def _dtw(
     windowing_function: wf.WindowingFunction,
 ):
     matrix = distance_metric(q, r, windowing_function)
-    for i in range(matrix.shape[0]):
-        for j in range(matrix.shape[1]):
-            if windowing_function.check(i, j) is False:
+    for i in range(q.shape[0]):
+        start, stop = windowing_function.range(i)
+        for j in range(start, stop):
+            if i == 0 and j == 0:
                 continue
-            if i > 0 or j > 0:
-                step_pattern(matrix, i, j, windowing_function)
+            step_pattern(matrix, i, j, windowing_function)
     return matrix[-1, -1]
 
 
@@ -73,6 +73,7 @@ def dtw(
 
 def main():
     import time
+    from dtw import dtw as dtw_ref
 
     np.random.seed(1)
     q = np.random.random((2048, 1024))
@@ -81,8 +82,8 @@ def main():
     r = r.astype(np.float32, copy=False)
 
     # windowing_function = wf.NoWindow()
-    windowing_function = wf.SakoeChiba(500)
-    # windowing_function = wf.SlantedBand(500)
+    # windowing_function = wf.SakoeChiba(500)
+    windowing_function = wf.SlantedBand(500)
     for _ in range(10):
         d = dtw(q, r, windowing_function=windowing_function)
     t0 = time.time()
@@ -91,14 +92,27 @@ def main():
     t1 = time.time()
     print(f"t={(t1 - t0) / 20 * 1000:.1f}ms ({d / (q.shape[0] + r.shape[0]):.3f})")
 
-    # window_fn, *args = wf.slanted_band(4)
+    d_ref = dtw_ref(
+        q,
+        r,
+        window_type="slantedband",
+        window_args={"window_size": 500},
+    ).normalizedDistance
+    print(f"Reference: {d_ref:.3f}")
+
+    # window_fn = wf.SlantedBand(4)
     # n, m = 24, 24
+    # window_fn.set_bounds(n, m)
     # actual = np.empty((n, m), dtype=np.bool_)
     # for i in range(n):
     #     for j in range(m):
-    #         actual[i, j] = window_fn(i, j, n, m, *args)
-    # for row in actual:
-    #     print(" ".join(["x" if x else "." for x in row]), str(sum(row)).zfill(2))
+    #         actual[i, j] = window_fn.check(i, j)
+    # for i, row in enumerate(actual):
+    #     print(
+    #         " ".join(["x" if x else "." for x in row]),
+    #         str(sum(row)).zfill(2),
+    #         window_fn.range(i),
+    #     )
 
 
 if __name__ == "__main__":

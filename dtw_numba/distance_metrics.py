@@ -19,9 +19,8 @@ def euclidean(
 ):
     matrix = np.empty((x.shape[0], y.shape[0]), dtype=x.dtype)
     for i in nb.prange(x.shape[0]):
-        for j in nb.prange(y.shape[0]):
-            if windowing_function.check(i, j) is False:
-                continue
+        start, stop = windowing_function.range(i)
+        for j in nb.prange(start, stop):
             matrix[i, j] = 0.0
             for k in nb.prange(x.shape[1]):
                 matrix[i, j] += (x[i, k] - y[j, k]) ** 2
