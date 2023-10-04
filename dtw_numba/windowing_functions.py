@@ -1,38 +1,50 @@
-from typing import Callable, TypeAlias
+from typing import Any, Callable, TypeAlias
 
 import numba as nb
 
-WindowingFunction: TypeAlias = Callable[[int, int, int, int], bool]
+
+class WindowingFunction:
+    n: int
+    m: int
+
+    def __init__(self):
+        self.n = 0
+        self.m = 0
+
+    def set_bounds(self, n: int, m: int):
+        self.n = n
+        self.m = m
+
+    def check(self, i: int, j: int) -> Any:
+        return i >= 0 and j >= 0
 
 
-@nb.njit(fastmath=True)
-def _no_window(i: int, j: int, n: int, m: int):
-    return i >= 0 and j >= 0
+@nb.experimental.jitclass()
+class NoWindow(WindowingFunction):
+    pass
 
 
-def no_window():
-    return (_no_window,)
+@nb.experimental.jitclass
+class SakoeChiba(WindowingFunction):
+    window_size: int
+
+    def __init__(self, window_size: int):
+        self.n = 0
+        self.m = 0
+        self.window_size = window_size
+
+    def check(self, i: int, j: int) -> Any:
+        return i >= 0 and j >= 0 and abs(i - j) <= self.window_size
 
 
-@nb.njit(fastmath=True)
-def _sakoe_chiba(i: int, j: int, n: int, m: int, window_size: int):
-    if window_size < 0 or i < 0 or j < 0:
-        return False
-    return abs(i - j) <= window_size
+@nb.experimental.jitclass
+class SlantedBand(WindowingFunction):
+    window_size: int
 
+    def __init__(self, window_size: int):
+        self.n = 0
+        self.m = 0
+        self.window_size = window_size
 
-def sakoe_chiba(window_size: int):
-    """Sakoe-Chiba band windowing function."""
-    return _sakoe_chiba, window_size
-
-
-@nb.njit(fastmath=True)
-def _slanted_band(i: int, j: int, n: int, m: int, window_size: int):
-    if window_size < 0 or i < 0 or j < 0:
-        return False
-    return abs(j - i * m / n) <= window_size
-
-
-def slanted_band(window_size: int):
-    """Slanted band windowing function."""
-    return _slanted_band, window_size
+    def check(self, i: int, j: int) -> Any:
+        return i >= 0 and j >= 0 and abs(j - i * self.m / self.n) <= self.window_size

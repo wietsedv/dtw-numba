@@ -15,13 +15,12 @@ DistanceMetric: TypeAlias = Callable[
 def euclidean(
     x: np.ndarray,
     y: np.ndarray,
-    windowing_function: wf.WindowingFunction,
-    windowing_args: tuple = (),
+    windowing_function: wf.WindowingFunction
 ):
     matrix = np.empty((x.shape[0], y.shape[0]), dtype=x.dtype)
     for i in nb.prange(x.shape[0]):
         for j in nb.prange(y.shape[0]):
-            if windowing_function(i, j, *windowing_args) is False:
+            if windowing_function.check(i, j) is False:
                 continue
             matrix[i, j] = 0.0
             for k in nb.prange(x.shape[1]):
