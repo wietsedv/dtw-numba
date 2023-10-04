@@ -79,21 +79,15 @@ def main():
     r = np.random.random((2048, 1024))
     q = q.astype(np.float32, copy=False)
     r = r.astype(np.float32, copy=False)
+
+    # windowing_function = wf.NoWindow()
+    windowing_function = wf.SakoeChiba(500)
+    # windowing_function = wf.SlantedBand(500)
     for _ in range(10):
-        d = dtw(
-            q,
-            r,
-            # windowing_function=wf.SakoeChiba(500),
-            windowing_function=wf.SlantedBand(500),
-        )
+        d = dtw(q, r, windowing_function=windowing_function)
     t0 = time.time()
     for _ in range(20):
-        d = dtw(
-            q,
-            r,
-            # windowing_function=wf.SakoeChiba(500),
-            windowing_function=wf.SlantedBand(500),
-        )
+        d = dtw(q, r, windowing_function=windowing_function)
     t1 = time.time()
     print(f"t={(t1 - t0) / 20 * 1000:.1f}ms ({d / (q.shape[0] + r.shape[0]):.3f})")
 
